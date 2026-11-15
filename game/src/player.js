@@ -15,6 +15,7 @@ let viewmodel = null;
 let vmKey = null;          // what the viewmodel currently shows
 let bobPhase = 0;
 let wasFiring = false;
+let prevYaw = 0, prevPitch = 0, swayX = 0, swayY = 0;   // viewmodel lag behind the look
 
 export function initViewmodel(camera) {
   viewmodel = new THREE.Group();
@@ -132,13 +133,36 @@ export function poseCamera(f, camera, dt) {
   const bob = Math.min(1, f.speed2d / 4);
   const scoped = f.aiming && currentWeaponKey(f) === 'longbow';
   const ads = f.aiming && !scoped;
+
+  // Sway: the gun trails a fast look by a few centimetres and settles back, so turning
+  // feels like carrying weight instead of wearing a camera on rails.
+  if (dt > 0) {
+    let dyaw = f.yaw - prevYaw;
+    while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+    while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+    swayX += ((-dyaw / dt) * 0.006 - swayX) * Math.min(1, dt * 18);
+    swayY += (((f.pitch - prevPitch) / dt) * 0.004 - swayY) * Math.min(1, dt * 18);
+  }
+  prevYaw = f.yaw; prevPitch = f.pitch;
+  const sx = Math.max(-0.035, Math.min(0.035, swayX));
+  const sy = Math.max(-0.025, Math.min(0.025, swayY));
+
+  // Reload: the gun dips and rolls while the magazine is out, and comes back up as the
+  // reload lands — the animation is the timer, no separate clock.
+  let dip = 0;
+  if (f.reloadT > 0) {
+    const def = WEAPONS[currentWeaponKey(f)];
+    if (def) dip = Math.sin(Math.min(1, 1 - f.reloadT / (def.reloadMs / 1000)) * Math.PI);
+  }
+
   const tx = ads ? 0 : 0.34;
   const ty = ads ? -0.148 : -0.32 + Math.sin(bobPhase * 2) * 0.008 * bob;
   const tz = ads ? -0.35 : -0.55;
   viewmodel.rotation.y = ads ? 0 : -0.07;
-  viewmodel.position.x += (tx - viewmodel.position.x) * Math.min(1, dt * 14);
-  viewmodel.position.y += (ty - viewmodel.position.y) * Math.min(1, dt * 14);
+  viewmodel.position.x += ((tx + sx) - viewmodel.position.x) * Math.min(1, dt * 14);
+  viewmodel.position.y += ((ty + sy - dip * 0.13) - viewmodel.position.y) * Math.min(1, dt * 14);
   viewmodel.position.z += (tz - viewmodel.position.z) * Math.min(1, dt * 14);
-  viewmodel.rotation.x = (f.kick ?? 0) * 0.05;
+  viewmodel.rotation.x = (f.kick ?? 0) * 0.05 - dip * 0.55;
+  viewmodel.rotation.z = dip * 0.18;
   viewmodel.visible = !!f.alive && !scoped;
 }

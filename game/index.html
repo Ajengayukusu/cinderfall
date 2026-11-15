@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <title>Cinderfall — a three.js tactical FPS</title>
 <style>
   :root {
@@ -32,6 +33,9 @@
   #hitmarker i:nth-child(2) { left: 12px; bottom: 0; width: 2px; height: 8px; }
   #hitmarker i:nth-child(3) { top: 12px; left: 0; height: 2px; width: 8px; }
   #hitmarker i:nth-child(4) { top: 12px; right: 0; height: 2px; width: 8px; }
+  #hitmarker.kill i { background: var(--danger); }
+  #dmgDir { position: fixed; left: 50%; top: 50%; width: 92px; height: 92px; transform: translate(-50%, -50%); opacity: 0; z-index: 5; pointer-events: none; }
+  #dmgDir i { position: absolute; left: 50%; top: -4px; width: 44px; height: 14px; transform: translateX(-50%); border-top: 4px solid var(--danger); border-radius: 50% 50% 0 0 / 100% 100% 0 0; filter: drop-shadow(0 0 3px rgba(0,0,0,.6)); }
 
   #banner { position: fixed; left: 50%; top: 26%; transform: translateX(-50%); font-size: 44px; font-weight: 800; letter-spacing: .12em; text-shadow: 0 2px 14px rgba(0,0,0,.7); opacity: 0; transition: opacity .3s; z-index: 6; white-space: nowrap; }
   #subbanner { position: fixed; left: 50%; top: calc(26% + 58px); transform: translateX(-50%); font-size: 16px; color: var(--muted); letter-spacing: .06em; opacity: 0; transition: opacity .3s; z-index: 6; white-space: nowrap; }
@@ -126,6 +130,7 @@
 <div id="hud">
   <div id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+  <div id="dmgDir"><i></i></div>
 
   <div id="topleft">
     <canvas id="minimap" width="176" height="176"></canvas>

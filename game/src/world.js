@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 
 export const PALETTE = {
-  sky: 0x232c3a, fog: 0x272d38,
+  sky: 0x232c3a, fog: 0x2b2c3a,
   sun: 0xffb066, hemiSky: 0x8fa3bf, hemiGround: 0x3d3630,
   concrete: 0x83868a, concreteDark: 0x5d6066, asphalt: 0x3f4247,
   rust: 0x9a4a2e, teal: 0x2e6f6a, slate: 0x54606e, ochre: 0xb07a2e,
@@ -239,11 +239,50 @@ function materialFor(box) {
   return mat;
 }
 
+// The dusk sky: a canvas gradient on a far dome — deep blue up top, a bruised purple
+// middle, and the last ember-orange band of sunset sitting on the horizon the yard is
+// named for. Basic material with fog off, so the grade never washes out with distance.
+function buildSky(scene) {
+  const cv = document.createElement('canvas');
+  cv.width = 4; cv.height = 256;
+  const cx = cv.getContext('2d');
+  const grad = cx.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0.0, '#0e1727');
+  grad.addColorStop(0.30, '#243350');
+  grad.addColorStop(0.43, '#4c4470');
+  grad.addColorStop(0.485, '#c06a48');
+  grad.addColorStop(0.515, '#eda050');
+  grad.addColorStop(0.55, '#7c4636');
+  grad.addColorStop(0.66, '#38303a');
+  grad.addColorStop(1.0, '#2c2529');
+  cx.fillStyle = grad; cx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(320, 24, 16),
+    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false }),
+  );
+  scene.add(dome);
+}
+
+// A soft radial glow sprite, the same trick the muzzle flash uses: lamps read as lit
+// sources at dusk instead of bare poles, for the price of one shared texture.
+function glowTexture() {
+  return canvasTexture('glow', 128, 128, (ctx, w, h) => {
+    const grad = ctx.createRadialGradient(64, 64, 2, 64, 64, 62);
+    grad.addColorStop(0, 'rgba(255,190,110,0.9)');
+    grad.addColorStop(0.35, 'rgba(255,150,60,0.38)');
+    grad.addColorStop(1, 'rgba(255,130,40,0)');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+  });
+}
+
 export function buildWorld(scene) {
   scene.background = new THREE.Color(PALETTE.sky);
-  scene.fog = new THREE.Fog(PALETTE.fog, 55, 130);
+  buildSky(scene);
+  scene.fog = new THREE.Fog(PALETTE.fog, 46, 122);
 
-  const hemi = new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, 1.15);
+  const hemi = new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, 1.32);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(PALETTE.sun, 2.2);
   sun.position.set(-38, 42, -20);
@@ -257,16 +296,35 @@ export function buildWorld(scene) {
   scene.add(new THREE.AmbientLight(0x46536e, 0.65));
 
   // Sodium yard lamps at the two sites and mid: warm pools of light for the dusk palette.
+  // Each stands on its pole with an emissive head and a glow sprite, so the source of the
+  // light is something the eye can find in the scene.
+  const glowTex = glowTexture();
   for (const [x, z] of [[-21, -22], [23.5, 24.5], [0, -1]]) {
+    const hx = x + 1.6, hz = z + 1.6;
     const lamp = new THREE.PointLight(0xffa050, 60, 26, 1.8);
-    lamp.position.set(x, 5.2, z);
+    lamp.position.set(hx, 5.2, hz);
     scene.add(lamp);
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.09, 0.09, 5.2, 6),
       new THREE.MeshStandardMaterial({ color: PALETTE.metal, roughness: 0.6, metalness: 0.6 }),
     );
-    pole.position.set(x + 1.6, 2.6, z + 1.6);
+    pole.position.set(hx, 2.6, hz);
     scene.add(pole);
+    const head = new THREE.Mesh(
+      new THREE.BoxGeometry(0.52, 0.12, 0.3),
+      new THREE.MeshStandardMaterial({
+        color: 0x2c2f33, emissive: 0xffa050, emissiveIntensity: 2.4, roughness: 0.5, metalness: 0.4,
+      }),
+    );
+    head.position.set(hx, 5.24, hz);
+    scene.add(head);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, transparent: true, opacity: 0.75,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    glow.scale.setScalar(4.2);
+    glow.position.set(hx, 5.2, hz);
+    scene.add(glow);
   }
 
   const ground = new THREE.Mesh(

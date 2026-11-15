@@ -13,6 +13,7 @@ let minimapCtx = null;
 let wallRects = [];
 let flashStrength = 0;
 let dmgPulse = 0;
+let dmgDirPulse = 0;   // the damage-direction arc fades on this, like dmgPulse
 let bannerUntil = 0;
 let nextBeepAt = 0;
 export let buyOpen = false;
@@ -21,7 +22,7 @@ export function initHud(colliders) {
   for (const id of ['crosshair', 'hitmarker', 'timer', 'roundLabel', 'scoreEmber', 'scoreWarden',
     'hpBar', 'hpText', 'armorTag', 'ammoMag', 'ammoReserve', 'weaponName', 'money', 'killfeed',
     'banner', 'subbanner', 'objective', 'buymenu', 'buyGrid', 'buyMoney', 'flashOverlay',
-    'dmgOverlay', 'scopeOverlay', 'channelWrap', 'channelFill', 'channelLabel', 'chargeTag',
+    'dmgOverlay', 'dmgDir', 'scopeOverlay', 'channelWrap', 'channelFill', 'channelLabel', 'chargeTag',
     'pipsEmber', 'pipsWarden', 'nadeRow', 'menuOverlay', 'endOverlay', 'endTitle', 'endScore']) {
     el[id] = document.getElementById(id);
   }
@@ -110,7 +111,12 @@ export function hudEvent(ev) {
       el.killfeed.prepend(row);
       while (el.killfeed.children.length > 5) el.killfeed.lastChild.remove();
       setTimeout(() => row.remove(), 5200);
-      if (ev.killer?.isPlayer) SFX.sfxHit(true);
+      if (ev.killer?.isPlayer) {
+        SFX.sfxHit(true);
+        // A kill confirms in red, where a plain hit only blips amber.
+        el.hitmarker.classList.add('on', 'kill');
+        setTimeout(() => el.hitmarker.classList.remove('on', 'kill'), 190);
+      }
       break;
     }
     case 'damage':
@@ -119,7 +125,11 @@ export function hudEvent(ev) {
         setTimeout(() => el.hitmarker.classList.remove('on'), 110);
         SFX.sfxHit(ev.part === 'head');
       }
-      if (ev.target?.isPlayer) { dmgPulse = Math.min(1, dmgPulse + 0.45); SFX.sfxHurt(); }
+      if (ev.target?.isPlayer) {
+        dmgPulse = Math.min(1, dmgPulse + 0.45);
+        if (ev.attacker) pointDamageArc(ev.attacker.x, ev.attacker.z);
+        SFX.sfxHurt();
+      }
       break;
     case 'roundStart':
       showBanner(`ROUND ${ev.round}`, state.round === 1 ? 'First to 9 takes the match' : '');
@@ -148,7 +158,8 @@ export function hudEvent(ev) {
         defused: 'Charge defused',
         time: 'Time expired — site held',
       };
-      showBanner(won ? 'ROUND WON' : 'ROUND LOST', reasons[ev.reason] ?? '', 3400);
+      showBanner(won ? 'ROUND WON' : 'ROUND LOST',
+        `${reasons[ev.reason] ?? ''} · Ember ${state.score.ember} — ${state.score.warden} Warden`, 3400);
       SFX.sfxRoundWin(won);
       setBuyOpen(false);
       break;
@@ -165,6 +176,26 @@ export function hudEvent(ev) {
       if (ev.by?.isPlayer) showBanner('CHARGE RECOVERED', 'Get it to a site and hold E to plant', 1800);
       break;
   }
+}
+
+// The damage-direction arc: a ring segment around the crosshair, rotated so it sits on
+// the side the shot came from. Bearings use the aim convention — the attacker's world
+// bearing as a yaw, minus the player's own yaw, is where it lands relative to the view.
+function pointDamageArc(ax, az) {
+  const p = state.player;
+  if (!p || !el.dmgDir) return;
+  let rel = Math.atan2(-(ax - p.x), -(az - p.z)) - p.yaw;
+  while (rel > Math.PI) rel -= Math.PI * 2;
+  while (rel < -Math.PI) rel += Math.PI * 2;
+  el.dmgDir.style.transform = `translate(-50%, -50%) rotate(${(-rel * 180 / Math.PI).toFixed(1)}deg)`;
+  dmgDirPulse = 1;
+}
+
+// Staging hook for the screenshot scenes: light the arc as if a shot had just arrived
+// from (ax, az), and hold the damage vignette with it.
+export function showDamageFrom(ax, az) {
+  pointDamageArc(ax, az);
+  dmgPulse = Math.max(dmgPulse, 0.7);
 }
 
 function showBanner(text, sub = '', holdMs = 2400) {
@@ -310,6 +341,10 @@ export function updateHud(dt) {
     dmgPulse = Math.max(0, dmgPulse - dt * 1.6);
     el.dmgOverlay.style.opacity = String(dmgPulse * 0.55);
   } else el.dmgOverlay.style.opacity = '0';
+  if (dmgDirPulse > 0.003) {
+    dmgDirPulse = Math.max(0, dmgDirPulse - dt * 1.1);
+    el.dmgDir.style.opacity = String(Math.min(1, dmgDirPulse * 1.4));
+  } else el.dmgDir.style.opacity = '0';
 
   if (performance.now() > bannerUntil) {
     el.banner.style.opacity = '0';

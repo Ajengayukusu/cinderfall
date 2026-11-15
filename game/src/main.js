@@ -25,7 +25,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.18;
+renderer.toneMappingExposure = 1.24;
 document.getElementById('game').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -266,13 +266,16 @@ if (shotName) {
   poseCamera(player, camera, 0);
   for (const f of state.fighters) {
     if (f.isPlayer) continue;
-    poseFighterMesh(meshes.get(f), f, 0);
+    // A dead fighter is posed with its fall completed (deathT is time-driven, and a
+    // staged frame has no time to spare): bodies read as down, not mid-animation.
+    poseFighterMesh(meshes.get(f), f, f.alive ? 0 : 0.6);
     setFighterGun(meshes.get(f), currentWeaponKey(f));
   }
   syncCharge();
   updateHud(0);
   renderer.render(scene, camera);
   renderer.render(scene, camera);
+  plan.late?.();
   window.__shotReady = true;
 }
 

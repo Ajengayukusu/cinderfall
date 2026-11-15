@@ -35,7 +35,7 @@ export function spawnTracer(x1, y1, z1, x2, y2, z2, now) {
   t.line.geometry.attributes.position.needsUpdate = true;
   t.line.material.opacity = 0.85;
   t.line.visible = true;
-  t.until = now + 70;
+  t.until = now + 115;
 }
 
 // --- impact particles: one Points cloud, ring-buffered --------------------------------------
@@ -119,16 +119,52 @@ export function spawnExplosion(x, y, z, scale, now) {
 // --- muzzle flash: one shared light + sprite, repositioned per shot --------------------------
 let flashLight = null, flashSprite = null;
 
-export function spawnMuzzle(x, y, z, now) {
+// The light goes at the barrel point (x, y, z); the sprite — a camera-facing billboard —
+// goes at the viewmodel's muzzle (sx, sy, sz) when the shooter supplies it, because a
+// billboard half a metre from the eye on the view axis would fill the whole screen.
+export function spawnMuzzle(x, y, z, now, sx, sy, sz) {
   flashLight.position.set(x, y, z);
-  flashLight.intensity = 26;
-  flashSprite.position.set(x, y, z);
-  flashSprite.material.opacity = 0.9;
+  flashLight.intensity = 13;
+  flashSprite.position.set(sx ?? x, sy ?? y, sz ?? z);
+  flashSprite.material.opacity = 0.8;
   flashSprite.material.rotation = Math.random() * Math.PI;
   flashSprite.visible = true;
   flashUntil = now + 45;
 }
 let flashUntil = 0;
+
+// --- shell casings: a small pool of brass boxes, ejected and spun on every shot -------------
+const CASINGS = 26;
+const casingPool = [];
+let casingCursor = 0;
+
+function buildCasings() {
+  const geo = new THREE.BoxGeometry(0.016, 0.016, 0.042);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xc9962e, roughness: 0.35, metalness: 0.85,
+  });
+  for (let i = 0; i < CASINGS; i++) {
+    const m = new THREE.Mesh(geo, material);
+    m.visible = false;
+    scene.add(m);
+    casingPool.push({ m, vx: 0, vy: 0, vz: 0, spin: 0, until: 0 });
+  }
+}
+
+// Eject one casing from (x, y, z): up and to the shooter's right, tumbling, one bounce,
+// gone inside a second. Pure garnish — the simulation never reads it.
+export function spawnCasing(x, y, z, rightX, rightZ, now) {
+  const c = casingPool[casingCursor];
+  casingCursor = (casingCursor + 1) % CASINGS;
+  c.m.position.set(x, y, z);
+  c.m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+  c.vx = rightX * (1.1 + Math.random() * 0.5);
+  c.vz = rightZ * (1.1 + Math.random() * 0.5);
+  c.vy = 1.5 + Math.random() * 0.7;
+  c.spin = 9 + Math.random() * 10;
+  c.until = now + 850;
+  c.m.visible = true;
+}
 
 // --- the breach charge prop -------------------------------------------------------------------
 export function createChargeMesh() {
@@ -159,6 +195,7 @@ export function initEffects(s) {
   scene = s;
   buildTracers();
   buildParticles();
+  buildCasings();
   flashLight = new THREE.PointLight(0xffc070, 0, 9, 1.8);
   scene.add(flashLight);
   const cv = document.createElement('canvas');
@@ -173,7 +210,7 @@ export function initEffects(s) {
     map: new THREE.CanvasTexture(cv), transparent: true, opacity: 0,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  flashSprite.scale.setScalar(0.55);
+  flashSprite.scale.setScalar(0.34);
   flashSprite.visible = false;
   scene.add(flashSprite);
 }
@@ -182,7 +219,7 @@ export function updateEffects(dt, now) {
   for (const t of tracerPool) {
     if (!t.line.visible) continue;
     if (now > t.until) { t.line.visible = false; continue; }
-    t.line.material.opacity = 0.85 * (t.until - now) / 70;
+    t.line.material.opacity = 0.85 * (t.until - now) / 115;
   }
   const dtMs = dt * 1000;
   let anyAlive = false;
@@ -231,5 +268,21 @@ export function updateEffects(dt, now) {
   if (flashLight.intensity > 0 && now > flashUntil) {
     flashLight.intensity = 0;
     flashSprite.visible = false;
+  }
+
+  for (const c of casingPool) {
+    if (!c.m.visible) continue;
+    if (now > c.until) { c.m.visible = false; continue; }
+    c.vy -= 6.5 * dt;
+    c.m.position.x += c.vx * dt;
+    c.m.position.y += c.vy * dt;
+    c.m.position.z += c.vz * dt;
+    if (c.m.position.y < 0.03) {
+      c.m.position.y = 0.03;
+      c.vy = Math.abs(c.vy) > 1 ? -c.vy * 0.35 : 0;
+      c.vx *= 0.6; c.vz *= 0.6; c.spin *= 0.4;
+    }
+    c.m.rotation.x += c.spin * dt;
+    c.m.rotation.z += c.spin * 0.7 * dt;
   }
 }

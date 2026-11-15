@@ -7,7 +7,7 @@
 import { WEAPONS, GRENADES, ECONOMY } from './config.js';
 import { castShot, sightBlocked } from './physics.js';
 import { state, damageFighter, currentWeaponKey, isGrenadeSlot, reportNoise, emit, giveWeapon } from './state.js';
-import { spawnTracer, spawnImpact, spawnMuzzle, spawnExplosion, spawnSmokeCloud } from './effects.js';
+import { spawnTracer, spawnImpact, spawnMuzzle, spawnExplosion, spawnSmokeCloud, spawnCasing } from './effects.js';
 import * as SFX from './audio.js';
 
 export function aimDir(yaw, pitch) {
@@ -65,7 +65,17 @@ export function tryFire(f, colliders, rng = Math.random) {
   const muzzle = {
     x: eye.x + base.x * 0.55, y: eye.y - 0.14 + base.y * 0.55, z: eye.z + base.z * 0.55,
   };
-  if (f.isPlayer) spawnMuzzle(muzzle.x, muzzle.y, muzzle.z, state.nowMs);
+  // The spent casing leaves the ejection port, to the shooter's right of the receiver.
+  const rightX = Math.cos(f.yaw), rightZ = -Math.sin(f.yaw);
+  if (f.isPlayer) {
+    // The flash billboard sits at the viewmodel's muzzle — right, low and forward of the
+    // eye — not on the view axis, where it would white the screen out.
+    spawnMuzzle(muzzle.x, muzzle.y, muzzle.z, state.nowMs,
+      eye.x + base.x * 0.85 + rightX * 0.3, eye.y - 0.24, eye.z + base.z * 0.85 + rightZ * 0.3);
+  }
+  spawnCasing(
+    eye.x + rightX * 0.17 + base.x * 0.22, eye.y - 0.1, eye.z + rightZ * 0.17 + base.z * 0.22,
+    rightX, rightZ, state.nowMs);
   for (let p = 0; p < def.pellets; p++) {
     const dir = jitterDir(base, spread, rng);
     const hit = castShot(colliders, bodies, eye.x, eye.y, eye.z, dir.x, dir.y, dir.z, 220, f);
