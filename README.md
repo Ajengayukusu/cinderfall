@@ -1,74 +1,26 @@
-# Cinderfall — a three.js tactical FPS
+# cinderfall
 
-A round-based tactical shooter for the browser, in the style Counter-Strike made famous —
-built from scratch on three.js 0.187.0, with an original map, original names, and no assets
-to download: every texture is painted in code, every sound is synthesized with WebAudio, and
-the fighters and guns are built from boxes at runtime. It plays completely offline against
-bots.
+[![make.fun · threejs-fps-02](https://make.fun/badge/threejs-fps-02.svg)](https://make.fun/bounty/threejs-fps-02?utm_source=github&utm_medium=readme&utm_campaign=threejs-fps-02)
+[![rank](https://make.fun/badge/threejs-fps-02/Ajengayukusu/cinderfall/rank.svg)](https://make.fun/bounty/threejs-fps-02/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=threejs-fps-02)
+[![reward](https://make.fun/badge/threejs-fps-02/Ajengayukusu/cinderfall/reward.svg)](https://make.fun/bounty/threejs-fps-02?utm_source=github&utm_medium=readme&utm_campaign=threejs-fps-02)
 
-**Ember** attacks **the Wardens** across **Cinder Yard**, a dusk freight yard. Win a round by
-eliminating the other team, or — as Ember — by planting the breach charge at the **Foundry
-(Site A)** or the **Depot (Site B)** and holding it until it blows. Wardens win by running
-the clock down or defusing. First to 9 rounds takes the match.
+Cinderfall is a round-based tactical FPS in the browser, built on three.js: Ember attackers vs Warden defenders on Cinder Yard, an original dusk freight-yard map with two plant sites, a breach-charge objective, a full buy economy, five weapons, three grenades, and nine bots that plant, defuse and rotate. First to nine rounds; fully offline, no build step. Built for make.fun's "Make the best three.js tactical FPS" bounty.
 
-## Play it
+## Run it
 
 ```sh
-node serve.ts            # serves game/ at http://localhost:8080
+node --experimental-strip-types main.ts
 ```
 
-Open the page, click to play. Any static file server works just as well — `game/` is plain
-files, ES modules, no build step.
-
-| Input | Action |
-| --- | --- |
-| WASD / mouse | move / look |
-| Click / right-click | fire / aim (the Longbow gets a scope) |
-| Shift | walk — slow and quiet |
-| Ctrl or C | crouch |
-| Space | jump |
-| R / Q | reload / last weapon |
-| 1, 2 | primary, sidearm |
-| 4, 5, 6 | Shard frag, Lumen flash, Veil smoke — click to throw |
-| B | buy menu (during the buy phase) |
-| E (hold) | plant the charge on a site |
+That builds the submission output (`/output`: the game, the screenshots and `dossier.json`). To play, serve the `game/` directory with any static HTTP server and open `game/index.html` in a desktop browser — WASD to move, mouse to aim, B to buy, hold E at a site to plant or defuse.
 
 ## The game
 
-- **Gunplay that rewards stopping.** Spread is several times tighter standing still than
-  running, crouching tightens it further, and jumping is hopeless — the crosshair shows the
-  true spread, so the HUD teaches the mechanic. Headshots multiply damage (up to ×3.9),
-  armour blunts body shots, and damage falls off past each weapon's range.
-- **Five weapons, three grenades, one economy.** The P9 Sparrow sidearm, Raptor-9 SMG,
-  Mule 12 scattergun, VK-7 Kestrel rifle and Longbow .338; frag, flash (it blinds by facing
-  and line of sight) and smoke (it genuinely blocks vision — the bots can't see through it
-  either). Kills, plants and round results pay into a persistent team economy with a buy
-  phase every round.
-- **Bots with a plan.** Nine bot fighters run the same physics and weapon code as the
-  player. Defenders split across both sites and mid, each post watching its lane; attackers
-  commit to a site each round, trade through waypoint routes, react to gunfire they hear,
-  fall back for a dropped charge, plant it, defend the plant — and the Wardens rotate in to
-  defuse, even after every attacker is down, exactly as the rules demand.
-- **A fixed-step simulation.** The match ticks at 60 Hz regardless of display rate, in
-  modules with one job each: `state` (the match), `world` (the map as data), `physics`
-  (bodies and ray tests), `weapons`, `bots`, `player`, `hud`, `effects`, `audio`, `models`,
-  `nav`. State lives in one place; hot loops allocate nothing.
+- **Rounds and objective:** first to 9 rounds. A round ends by elimination, by planting the breach charge (3.2 s channel, 40 s fuse) and letting it blow, by defusing it, or on the clock — and a planted round plays on for a defuse even with every attacker dead.
+- **Gunplay:** hitscan against head/chest/hip spheres (headshots up to ×3.9), spread that tightens standing and crouching and falls apart jumping, recoil bloom, range falloff and armour — the crosshair gap is the true spread. Five weapons (P9 Sparrow pistol, Raptor-9 SMG, Mule 12 scattergun, VK-7 Kestrel rifle, Longbow .338 with a working scope) and three grenades: frag with cover-checked radial damage, flash that blinds by facing and line of sight (bots included), and smoke that genuinely blocks bot vision.
+- **Bots:** nine of them, running the same physics and weapon code as the player — waypoint routes across three lanes, post watching, sight through the real colliders, hearing from gunfire and footsteps, reaction times, burst discipline and strafing. Defenders split the sites; attackers commit to one, retrieve a dropped charge, plant, defend the plant, and rotate to defuse.
+- **Presentation:** procedural canvas textures, dusk lighting with shadows and sodium lamps, synthesized WebAudio sound (no audio files), tracers, particles, a minimap, killfeed and team pips — a fixed 60 Hz simulation split from rendering.
 
-## Handing it in
+---
 
-`main.ts` is the make.fun handover program: it copies `game/` and `screenshots/` to the
-output directory and writes `dossier.json` there with the kit's vendored library
-(`vendor/makefun-threejs.ts`, byte for byte the kit's copy).
-
-```sh
-mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
-```
-
-Screenshots are real captures of the staged scenes the game itself defines
-(`game/src/shots.js`, `?shot=cover|buy|combat|plant`), taken in a headless browser —
-never edited or composited.
-
-## License
-
-MIT — see `LICENSE`. three.js is vendored under `game/vendor/three/` under its own MIT
-license (`game/vendor/three/LICENSE`).
+<sub>Entered on [make.fun](https://make.fun/?ref=50v8qgc6&utm_source=github&utm_medium=readme&utm_campaign=threejs-fps-02) · AI agents build software for cash rewards</sub>
